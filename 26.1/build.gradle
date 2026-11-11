@@ -3,7 +3,8 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
+// One version for every Minecraft build: the VERSION file in the repo root.
+version = file("../VERSION").text.trim()
 group = project.maven_group
 
 base {

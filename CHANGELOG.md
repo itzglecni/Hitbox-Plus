@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to Hitbox+ are written here. Dates are when the version went live on [Modrinth](https://modrinth.com/mod/hitbox-plus/versions).
+All notable changes to Hitbox+ are written here, newest first. Each version is released for every supported Minecraft version at once. Dates are release dates.
 
-## 1.3.1
+## 1.3.1 (2026-11-11)
 
 **New: Rainbow Players card**
 
@@ -16,7 +16,7 @@ All notable changes to Hitbox+ are written here. Dates are when the version went
 * The rainbow name box no longer suggests a name while it is empty
 * Long hint text in the Players tab wraps instead of being cut off
 
-## 1.3.0
+## 1.3.0 (2026-10-24)
 
 **New: Players tab and Team Color**
 
@@ -39,17 +39,10 @@ All notable changes to Hitbox+ are written here. Dates are when the version went
 * Hit color only flashes after a hit is confirmed
 * Left click on the config screen fixed for 26.3
 
-## 26.3 support (2026-10-04)
-
-* First build for Minecraft 26.3
-
-## Reach fix (2026-08-22)
+## 1.1.1 (2026-08-22)
 
 * Fixed the reach bug on 1.21.11, 26.1.x and 26.2
-
-## 26.2 support (2026-06-22)
-
-* First build for Minecraft 26.2
+* 2026-10-04: first build for Minecraft 26.3. Known issue: the config screen ignores left clicks there (fixed in 1.2.0)
 
 ## 1.1.0 (2026-06-12)
 
@@ -58,14 +51,12 @@ All notable changes to Hitbox+ are written here. Dates are when the version went
 * New custom config screen with Toggles, Sizing and Colors tabs
 * RGB color picker with rainbow option for every color
 * Builds for 1.21.11 and 26.1.x
+* 2026-06-22: first build for Minecraft 26.2
 
-## 1.21.11 feature update (2026-04-24)
-
-* More features for 1.21.11
-
-## 26.1 support (2026-04-24)
+## 1.0.1 (2026-04-24)
 
 * First builds for Minecraft 26.1, 26.1.1 and 26.1.2
+* More features for 1.21.11
 
 ## 1.0.0 (2026-03-16)
 

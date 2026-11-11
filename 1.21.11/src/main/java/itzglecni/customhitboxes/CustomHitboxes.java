@@ -4,6 +4,7 @@ import itzglecni.customhitboxes.command.TeamCommands;
 import itzglecni.customhitboxes.config.ConfigManager;
 import itzglecni.customhitboxes.gui.CustomConfigScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -15,6 +16,11 @@ import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class CustomHitboxes implements ClientModInitializer {
+    // Read from fabric.mod.json, which Gradle fills from the VERSION file. Never hard-code a version here.
+    public static final String VERSION = FabricLoader.getInstance().getModContainer("hitboxesplus")
+        .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
+        .orElse("dev");
+
     private static final Category KEY_CATEGORY = Category.create(Identifier.of("hitboxesplus", "main"));
     private static final String OPEN_GUI_KEY = "key.hitboxesplus.open_config";
 
@@ -32,7 +38,7 @@ public class CustomHitboxes implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> TeamCommands.register(dispatcher));
-        System.out.println("[Hitbox Plus] Initialized ItzGlecni's Client-Side Hitbox Rendering Engine v1.3.1.");
+        System.out.println("[Hitbox Plus] Initialized ItzGlecni's Client-Side Hitbox Rendering Engine v" + VERSION + ".");
     }
 
     private void onClientTick(MinecraftClient client) {

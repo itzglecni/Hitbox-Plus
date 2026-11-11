@@ -1,5 +1,7 @@
 package itzglecni.customhitboxes.gui;
 
+import itzglecni.customhitboxes.CustomHitboxes;
+
 import itzglecni.customhitboxes.config.ConfigManager;
 import itzglecni.customhitboxes.config.ModConfig;
 import itzglecni.customhitboxes.config.TeamNames;
@@ -71,7 +73,7 @@ public class CustomConfigScreen extends Screen {
 
     private static final int FOOTER_H = 30;
     private static final int ROW_GAP = 4;
-    private static final String VERSION_LABEL = "v1.3.1";
+    private static final String VERSION_LABEL = "v" + CustomHitboxes.VERSION;
     private static final int TEAM_RED = 0xFFFF6B6B;
     private static final int TEAM_BLUE = 0xFF6BA8FF;
     private static final int ONLINE = 0xFF4ADE80;
