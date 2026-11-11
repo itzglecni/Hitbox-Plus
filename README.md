@@ -48,6 +48,7 @@ The live download count is on the [Modrinth project page](https://modrinth.com/m
 * **Hover color** turns a hitbox green when a left click right now would hit that entity. It uses Minecraft's own attack logic, so it respects your real reach, spears and weapon attack ranges
 * **Hit color** flashes red only after a hit is confirmed, not just when you swing
 * **Team Color** gives your teammates their own color so you can find them in crowded fights
+* **Rainbow Players** picks which players get rainbow colors
 
 **Filters**
 * Players and projectiles only mode (hides mobs and animals)
