@@ -43,6 +43,17 @@ public final class TeamNames {
         return index >= 0 ? names.remove(index) : null;
     }
 
+    // Swaps a stored name for another spelling of the same name ("officialx" -> "OfficialX").
+    // Returns true if the list changed.
+    public static boolean rename(List<String> names, String oldName, String newName) {
+        int index = indexOf(names, oldName);
+        if (index < 0 || newName == null || !newName.equalsIgnoreCase(names.get(index)) || names.get(index).equals(newName)) {
+            return false;
+        }
+        names.set(index, newName);
+        return true;
+    }
+
     // "Steve, Alex,,  Notch" -> [Steve, Alex, Notch]
     public static List<String> split(String input) {
         List<String> out = new ArrayList<>();

@@ -8,6 +8,8 @@ import itzglecni.customhitboxes.config.ConfigManager;
 import itzglecni.customhitboxes.config.ModConfig;
 import itzglecni.customhitboxes.config.TeamNames;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -82,20 +84,30 @@ public final class TeamCommands {
             context.getSource().sendError(prefix().append("\"" + name + "\" is not a valid player name."));
             return 0;
         }
-        if (!TeamNames.add(config.teamPlayers, name)) {
-            context.getSource().sendError(prefix().append(name + " is already on your team."));
+        Minecraft client = context.getSource().getClient();
+        String online = onlineSpelling(client, name);
+        String stored = online != null ? online : name;
+        if (!TeamNames.add(config.teamPlayers, stored)) {
+            context.getSource().sendError(prefix().append(stored + " is already on your team."));
             return 0;
         }
         ConfigManager.save();
+        if (online == null) {
+            fixSpellingLater(client, stored);
+        }
         context.getSource().sendFeedback(prefix()
             .append(Component.literal("Added ").withStyle(ChatFormatting.GRAY))
-            .append(Component.literal(name).withStyle(ChatFormatting.GREEN))
+            .append(Component.literal(stored).withStyle(ChatFormatting.GREEN))
             .append(Component.literal(" to your team.").withStyle(ChatFormatting.GRAY)));
         return 1;
     }
 
     private static int remove(CommandContext<FabricClientCommandSource> context) {
         String name = StringArgumentType.getString(context, "player");
+        if (name.equalsIgnoreCase(context.getSource().getClient().getUser().getName())) {
+            context.getSource().sendError(prefix().append("You can't be on your own team, so there is nothing to remove."));
+            return 0;
+        }
         String removed = TeamNames.remove(ConfigManager.getConfig().teamPlayers, name);
         if (removed == null) {
             context.getSource().sendError(prefix().append(name + " is not on your team."));
@@ -129,6 +141,29 @@ public final class TeamCommands {
         context.getSource().sendFeedback(prefix().append(Component.literal(
             count == 0 ? "Your team was already empty." : "Removed all " + count + " players from your team.").withStyle(ChatFormatting.GRAY)));
         return count;
+    }
+
+    // Real spelling from the tab list, or null when the player is not online.
+    private static String onlineSpelling(Minecraft client, String name) {
+        var connection = client.getConnection();
+        if (connection == null) {
+            return null;
+        }
+        PlayerInfo info = connection.getPlayerInfoIgnoreCase(name);
+        return info != null ? info.getProfile().name() : null;
+    }
+
+    // Offline players: ask Minecraft's player-head profile lookup for the real spelling, then fix the saved name.
+    private static void fixSpellingLater(Minecraft client, String stored) {
+        try {
+            client.playerSkinRenderCache().lookup(ResolvableProfile.createUnresolved(stored)).thenAcceptAsync(result -> result.ifPresent(found -> {
+                String real = found.gameProfile().name();
+                if (real != null && TeamNames.rename(ConfigManager.getConfig().teamPlayers, stored, real)) {
+                    ConfigManager.save();
+                }
+            }), client);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static MutableComponent prefix() {

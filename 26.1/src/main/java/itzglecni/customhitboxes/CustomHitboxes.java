@@ -31,7 +31,7 @@ public class CustomHitboxes implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> TeamCommands.register(dispatcher));
-        System.out.println("[Hitbox Plus] Initialized ItzGlecni's Client-Side Hitbox Rendering Engine v1.3.0.");
+        System.out.println("[Hitbox Plus] Initialized ItzGlecni's Client-Side Hitbox Rendering Engine v1.3.1.");
     }
 
     private void onClientTick(Minecraft client) {

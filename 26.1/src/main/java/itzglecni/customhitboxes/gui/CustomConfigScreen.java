@@ -71,12 +71,14 @@ public class CustomConfigScreen extends Screen {
 
     private static final int FOOTER_H = 30;
     private static final int ROW_GAP = 4;
-    private static final String VERSION_LABEL = "v1.3.0";
+    private static final String VERSION_LABEL = "v1.3.1";
     private static final int TEAM_RED = 0xFFFF6B6B;
     private static final int TEAM_BLUE = 0xFF6BA8FF;
     private static final int ONLINE = 0xFF4ADE80;
     private static final String TEAM_COLOR_INFO = "Team Color gives your teammates their own hitbox color. "
         + "Add players by name here, or use /hbteam in chat.";
+    private static final String RAINBOW_PLAYERS_INFO = "Rainbow Players picks who gets rainbow hitbox colors. "
+        + "Leave the list empty to give everyone rainbow colors. Turn rainbow on for a color in the Colors tab.";
 
     private final Screen parent;
     private final ModConfig working;
@@ -98,8 +100,11 @@ public class CustomConfigScreen extends Screen {
     private String tooltipText;
     private List<FormattedCharSequence> tooltipLines;
 
-    // Players tab: Team Color page and its "Add Players" popup.
-    private boolean teamPage;
+    // Players tab: the open page (Team Color or Rainbow Players) and its "Add Players" popup.
+    private enum SubPage { NONE, TEAM, RAINBOW }
+    private SubPage page = SubPage.NONE;
+    private final List<String> rainbowNames = new ArrayList<>();
+    private boolean rowsDirty;
     private boolean addPopupOpen;
     private EditBox addField;
     private String addPopupError;
@@ -111,6 +116,9 @@ public class CustomConfigScreen extends Screen {
         super(Component.literal("Hitbox Plus"));
         this.parent = parent;
         this.working = ConfigManager.getConfig().copy();
+        for (String name : TeamNames.split(this.working.rainbowSpecificPlayers)) {
+            TeamNames.add(rainbowNames, name);
+        }
         this.tabSwitchMillis = System.currentTimeMillis();
         rebuildRows();
     }
@@ -193,10 +201,10 @@ public class CustomConfigScreen extends Screen {
             case SIZING -> buildSizingRows();
             case COLORS -> buildColorRows();
             case PLAYERS -> {
-                if (teamPage) {
-                    buildTeamRows();
-                } else {
-                    rows.add(new TileRow());
+                switch (page) {
+                    case TEAM -> buildTeamRows();
+                    case RAINBOW -> buildRainbowRows();
+                    case NONE -> rows.add(new TileRow());
                 }
             }
         }
@@ -270,9 +278,6 @@ public class CustomConfigScreen extends Screen {
         rows.add(new ColorRow("Projectiles Color", "Color used for projectile hitboxes only.",
             () -> working.projectilesColor, v -> working.projectilesColor = v,
             () -> working.rainbowProjectiles, v -> working.rainbowProjectiles = v));
-        rows.add(new ActionRow("Rainbow Player List", "Limit rainbow mode to specific usernames.", "EDIT",
-            () -> this.minecraft.setScreen(new RainbowPlayersScreen(this, working.rainbowSpecificPlayers,
-                savedCsv -> working.rainbowSpecificPlayers = savedCsv))));
     }
 
     private void buildTeamRows() {
@@ -288,7 +293,7 @@ public class CustomConfigScreen extends Screen {
             rows.add(new InfoRow("No players yet. Click + to add someone."));
         } else {
             for (String name : working.teamPlayers) {
-                rows.add(new NameRow(name));
+                rows.add(new NameRow(name, working.teamPlayers));
             }
         }
 
@@ -298,6 +303,28 @@ public class CustomConfigScreen extends Screen {
         rows.add(new CommandRow("Show your team", "/hbteam list"));
         rows.add(new CommandRow("Remove everyone", "/hbteam clear"));
         rows.add(new InfoRow("Type these in chat. Click one to copy it."));
+    }
+
+    private void buildRainbowRows() {
+        rows.add(new SectionRow("Player Names", true));
+        if (rainbowNames.isEmpty()) {
+            rows.add(new InfoRow("No players yet. Everyone gets rainbow colors."));
+        } else {
+            for (String name : rainbowNames) {
+                rows.add(new NameRow(name, rainbowNames));
+            }
+        }
+        rows.add(new InfoRow("Turn rainbow on in the Colors tab to see it."));
+    }
+
+    // The name list the open page edits.
+    private List<String> pageNames() {
+        return page == SubPage.RAINBOW ? rainbowNames : working.teamPlayers;
+    }
+
+    // The rainbow list is stored as text ("Steve, Alex") in the config.
+    private void syncRainbowNames() {
+        working.rainbowSpecificPlayers = String.join(", ", rainbowNames);
     }
 
     private int contentHeight() {
@@ -317,6 +344,10 @@ public class CustomConfigScreen extends Screen {
         lastFrameNanos = now;
         tooltipText = null;
         tooltipLines = null;
+        if (rowsDirty) {
+            rowsDirty = false;
+            rebuildRows();
+        }
 
         updateScroll();
 
@@ -417,13 +448,21 @@ public class CustomConfigScreen extends Screen {
     }
 
     private int[] backBounds() {
-        return new int[]{contentX() - 3, panelY() + 7, this.font.width("Team Color") + 18, 14};
+        return new int[]{contentX() - 3, panelY() + 7, this.font.width(pageTitle()) + 18, 14};
+    }
+
+    private String pageTitle() {
+        return page == SubPage.RAINBOW ? "Rainbow Players" : "Team Color";
+    }
+
+    private String pageSubtitle() {
+        return page == SubPage.RAINBOW ? "Choose who gets rainbow colors" : "Teammates get their own hitbox color";
     }
 
     private void renderHeader(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         int x = contentX();
         int y = panelY() + 10;
-        if (tab == Tab.PLAYERS && teamPage) {
+        if (tab == Tab.PLAYERS && page != SubPage.NONE) {
             int[] back = backBounds();
             boolean hovered = contains(back, mouseX, mouseY);
             float hover = animate("btn:back", hovered);
@@ -437,8 +476,8 @@ public class CustomConfigScreen extends Screen {
             g.fill(x + 1, y + 2, x + 2, y + 5, arrow);
             g.fill(x + 2, y + 5, x + 3, y + 6, arrow);
             g.fill(x + 3, y + 6, x + 4, y + 7, arrow);
-            g.text(this.font, "Team Color", x + 10, y, TEXT_MAIN);
-            g.text(this.font, "Teammates get their own hitbox color", x, y + 12, TEXT_FAINT);
+            g.text(this.font, pageTitle(), x + 10, y, TEXT_MAIN);
+            g.text(this.font, pageSubtitle(), x, y + 12, TEXT_FAINT);
             if (hovered) {
                 tooltipText = "Back to Players";
             }
@@ -486,7 +525,7 @@ public class CustomConfigScreen extends Screen {
                     && mouseX >= x && mouseX <= x + w
                     && mouseY >= y && mouseY <= y + h
                     && mouseY >= top && mouseY <= bottom;
-                float hover = animate("row:" + tab + (teamPage ? ":team:" : ":") + i, hovered);
+                float hover = animate("row:" + tab + ":" + page + ":" + i, hovered);
                 row.render(g, x, y, w, mouseX, mouseY, hovered, hover);
             }
             y += h + ROW_GAP;
@@ -545,7 +584,7 @@ public class CustomConfigScreen extends Screen {
         centeredNS(g, "Reset Tab", reset[0] + reset[2] / 2, reset[1] + 5, blend(TEXT_FAINT, DANGER_HOVER, resetHover));
         if (resetHovered) {
             tooltipText = tab == Tab.PLAYERS
-                ? "Restore the Team Color settings. Your player names stay."
+                ? "Restore the Team Color settings. Player names stay."
                 : "Restore this tab's default settings";
         }
     }
@@ -595,8 +634,8 @@ public class CustomConfigScreen extends Screen {
             }
             return super.keyPressed(event);
         }
-        if (key == GLFW.GLFW_KEY_ESCAPE && tab == Tab.PLAYERS && teamPage) {
-            closeTeamPage();
+        if (key == GLFW.GLFW_KEY_ESCAPE && tab == Tab.PLAYERS && page != SubPage.NONE) {
+            closePage();
             return true;
         }
         return super.keyPressed(event);
@@ -616,15 +655,15 @@ public class CustomConfigScreen extends Screen {
             if (contains(navItemBounds(i), mx, my)) {
                 if (tab != tabs[i]) {
                     switchTab(tabs[i]);
-                } else if (teamPage) {
-                    closeTeamPage();
+                } else if (page != SubPage.NONE) {
+                    closePage();
                 }
                 return true;
             }
         }
 
-        if (tab == Tab.PLAYERS && teamPage && contains(backBounds(), mx, my)) {
-            closeTeamPage();
+        if (tab == Tab.PLAYERS && page != SubPage.NONE && contains(backBounds(), mx, my)) {
+            closePage();
             return true;
         }
 
@@ -721,7 +760,7 @@ public class CustomConfigScreen extends Screen {
     private void switchTab(Tab target) {
         playClick();
         tab = target;
-        teamPage = false;
+        page = SubPage.NONE;
         if (addPopupOpen) {
             closeAddPopup();
         }
@@ -804,22 +843,22 @@ public class CustomConfigScreen extends Screen {
         this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
     }
 
-    // ===== Team Color page =====
+    // ===== Team Color / Rainbow Players pages =====
 
-    private void openTeamPage() {
-        teamPage = true;
+    private void openPage(SubPage target) {
+        page = target;
         scroll = 0.0f;
         scrollTarget = 0.0f;
         tabSwitchMillis = System.currentTimeMillis();
         rebuildRows();
     }
 
-    private void closeTeamPage() {
+    private void closePage() {
         playClick();
         if (addPopupOpen) {
             closeAddPopup();
         }
-        teamPage = false;
+        page = SubPage.NONE;
         scroll = 0.0f;
         scrollTarget = 0.0f;
         tabSwitchMillis = System.currentTimeMillis();
@@ -897,13 +936,16 @@ public class CustomConfigScreen extends Screen {
         List<String> invalid = new ArrayList<>();
         boolean triedSelf = false;
         for (String name : typed) {
-            if (name.equalsIgnoreCase(ownName())) {
+            if (page == SubPage.TEAM && name.equalsIgnoreCase(ownName())) {
                 triedSelf = true;
             } else if (!TeamNames.isValid(name)) {
                 invalid.add(name);
             } else {
-                TeamNames.add(working.teamPlayers, name);
+                TeamNames.add(pageNames(), properName(name));
             }
+        }
+        if (page == SubPage.RAINBOW) {
+            syncRainbowNames();
         }
         playClick();
         rebuildRows();
@@ -977,7 +1019,7 @@ public class CustomConfigScreen extends Screen {
 
         List<String> result = new ArrayList<>();
         for (String name : knownPlayerNames()) {
-            if (name.equalsIgnoreCase(ownName()) || TeamNames.contains(working.teamPlayers, name) || TeamNames.contains(typedElsewhere, name)
+            if ((page == SubPage.TEAM && name.equalsIgnoreCase(ownName())) || TeamNames.contains(pageNames(), name) || TeamNames.contains(typedElsewhere, name)
                 || TeamNames.contains(result, name)) {
                 continue;
             }
@@ -1070,6 +1112,28 @@ public class CustomConfigScreen extends Screen {
     private boolean isOnline(String name) {
         ClientPacketListener connection = this.minecraft.getConnection();
         return connection != null && connection.getPlayerInfoIgnoreCase(name) != null;
+    }
+
+    // The player's real name spelling: from the tab list when they are online, else from Minecraft's
+    // player-head profile lookup once it has loaded. Falls back to what was typed.
+    private String properName(String typed) {
+        ClientPacketListener connection = this.minecraft.getConnection();
+        if (connection != null) {
+            PlayerInfo info = connection.getPlayerInfoIgnoreCase(typed);
+            if (info != null && info.getProfile().name() != null) {
+                return info.getProfile().name();
+            }
+        }
+        try {
+            ResolvableProfile profile = skinProfiles.computeIfAbsent(typed.toLowerCase(Locale.ROOT),
+                key -> ResolvableProfile.createUnresolved(typed));
+            String looked = this.minecraft.playerSkinRenderCache().getOrDefault(profile).gameProfile().name();
+            if (looked != null && looked.equalsIgnoreCase(typed)) {
+                return looked;
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return typed;
     }
 
     // Skin for the avatar: the server's skin if the player is online, else Minecraft's own player-head
@@ -1537,51 +1601,75 @@ public class CustomConfigScreen extends Screen {
     // ===== Players tab rows =====
 
     // The Players tab home: one rounded tile per feature. Only Team Color for now.
+    // The Players tab home: one rounded card per feature, each with an "i" description.
     private class TileRow extends Row {
-        static final int TILE = 78;
+        static final int TILE = 90;
+        static final int GAP = 8;
+        final SubPage[] tiles = {SubPage.TEAM, SubPage.RAINBOW};
 
         TileRow() {
-            super("Team Color", TEAM_COLOR_INFO);
+            super("Players", "");
+        }
+
+        int perLine(int w) {
+            return Math.max(1, (w + GAP) / (TILE + GAP));
         }
 
         @Override
         int height() {
-            return TILE + 4;
+            // Height is fixed per frame by the last known width; two lines only on very narrow windows.
+            int lines = (tiles.length + perLine(contentW()) - 1) / perLine(contentW());
+            return lines * (TILE + GAP);
         }
 
-        int[] tileBounds(int x, int y) {
-            return new int[]{x + 1, y + 2, TILE, TILE};
+        int[] tileBounds(int x, int y, int w, int index) {
+            int per = perLine(w);
+            return new int[]{x + 1 + (index % per) * (TILE + GAP), y + 2 + (index / per) * (TILE + GAP), TILE, TILE};
         }
 
-        int[] infoBounds(int x, int y) {
-            int[] t = tileBounds(x, y);
+        int[] infoBounds(int[] t) {
             return new int[]{t[0] + TILE - 15, t[1] + 5, 10, 10};
+        }
+
+        String title(SubPage tile) {
+            return tile == SubPage.RAINBOW ? "Rainbow Players" : "Team Color";
+        }
+
+        String info(SubPage tile) {
+            return tile == SubPage.RAINBOW ? RAINBOW_PLAYERS_INFO : TEAM_COLOR_INFO;
         }
 
         @Override
         void render(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY, boolean hovered, float hover) {
-            int[] t = tileBounds(x, y);
-            boolean overTile = contains(t, mouseX, mouseY);
-            float h = animate("tile:team", overTile);
-            roundedFill(g, t[0] - 1, t[1] - 1, TILE + 2, TILE + 2, 7, blend(HAIRLINE, ACCENT, h));
-            roundedFill(g, t[0], t[1], TILE, TILE, 6, blend(CARD, CARD_HOVER, h));
+            for (int i = 0; i < tiles.length; i++) {
+                SubPage tile = tiles[i];
+                int[] t = tileBounds(x, y, w, i);
+                boolean overTile = contains(t, mouseX, mouseY);
+                float h = animate("tile:" + tile, overTile);
+                roundedFill(g, t[0] - 1, t[1] - 1, TILE + 2, TILE + 2, 7, blend(HAIRLINE, ACCENT, h));
+                roundedFill(g, t[0], t[1], TILE, TILE, 6, blend(CARD, CARD_HOVER, h));
 
-            int iconColor = working.rainbowTeam ? rainbowColor() : (0xFF000000 | (working.teamColor & 0xFFFFFF));
-            renderShieldIcon(g, t[0] + TILE / 2 - 9, t[1] + 17, iconColor);
-            centeredNS(g, "Team Color", t[0] + TILE / 2, t[1] + TILE - 19, TEXT_MAIN);
+                if (tile == SubPage.RAINBOW) {
+                    renderRainbowIcon(g, t[0] + TILE / 2 - 11, t[1] + 22);
+                } else {
+                    int iconColor = working.rainbowTeam ? rainbowColor() : (0xFF000000 | (working.teamColor & 0xFFFFFF));
+                    renderShieldIcon(g, t[0] + TILE / 2 - 9, t[1] + 19, iconColor);
+                }
+                centeredNS(g, title(tile), t[0] + TILE / 2, t[1] + TILE - 19, TEXT_MAIN);
 
-            int[] info = infoBounds(x, y);
-            boolean overInfo = contains(info, mouseX, mouseY);
-            float ih = animate("tile:team:info", overInfo);
-            roundedFill(g, info[0], info[1], info[2], info[3], 5, blend(TRACK_OFF, ACCENT, ih));
-            int glyph = blend(TEXT_MAIN, ON_ACCENT, ih);
-            g.fill(info[0] + 4, info[1] + 2, info[0] + 6, info[1] + 3, glyph);
-            g.fill(info[0] + 4, info[1] + 4, info[0] + 6, info[1] + 8, glyph);
+                int[] infoBox = infoBounds(t);
+                boolean overInfo = contains(infoBox, mouseX, mouseY);
+                float ih = animate("tile:" + tile + ":info", overInfo);
+                roundedFill(g, infoBox[0], infoBox[1], infoBox[2], infoBox[3], 5, blend(TRACK_OFF, ACCENT, ih));
+                int glyph = blend(TEXT_MAIN, ON_ACCENT, ih);
+                g.fill(infoBox[0] + 4, infoBox[1] + 2, infoBox[0] + 6, infoBox[1] + 3, glyph);
+                g.fill(infoBox[0] + 4, infoBox[1] + 4, infoBox[0] + 6, infoBox[1] + 8, glyph);
 
-            if (overInfo) {
-                tooltipLines = font.split(Component.literal(TEAM_COLOR_INFO), 220);
-            } else if (overTile) {
-                tooltipText = "Open Team Color settings";
+                if (overInfo) {
+                    tooltipLines = font.split(Component.literal(info(tile)), 220);
+                } else if (overTile) {
+                    tooltipText = "Open " + title(tile) + " settings";
+                }
             }
         }
 
@@ -1591,12 +1679,30 @@ public class CustomConfigScreen extends Screen {
 
         @Override
         boolean mouseClicked(double mx, double my, int x, int y, int w) {
-            if (contains(tileBounds(x, y), mx, my)) {
-                playClick();
-                openTeamPage();
-                return true;
+            for (int i = 0; i < tiles.length; i++) {
+                if (contains(tileBounds(x, y, w, i), mx, my)) {
+                    playClick();
+                    openPage(tiles[i]);
+                    return true;
+                }
             }
             return false;
+        }
+    }
+
+    // 22x12 rainbow arch: red outside to purple inside.
+    private void renderRainbowIcon(GuiGraphicsExtractor g, int x, int y) {
+        int[] bands = {0xFFFF6B6B, 0xFFFFB86B, 0xFFFFE66B, 0xFF6BFF8A, 0xFF6BA8FF, 0xFFB98BFF};
+        double cx = 11.0;
+        double cy = 12.0;
+        for (int py = 0; py < 12; py++) {
+            for (int px = 0; px < 22; px++) {
+                double d = Math.sqrt((px + 0.5 - cx) * (px + 0.5 - cx) + (py + 0.5 - cy) * (py + 0.5 - cy));
+                int band = (int) (11.5 - d);
+                if (band >= 0 && band < bands.length) {
+                    g.fill(x + px, y + py, x + px + 1, y + py + 1, bands[band]);
+                }
+            }
         }
     }
 
@@ -1672,8 +1778,11 @@ public class CustomConfigScreen extends Screen {
     }
 
     private class NameRow extends Row {
-        NameRow(String name) {
+        final List<String> list;
+
+        NameRow(String name, List<String> list) {
             super(name, "");
+            this.list = list;
         }
 
         @Override
@@ -1687,6 +1796,14 @@ public class CustomConfigScreen extends Screen {
 
         @Override
         void render(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY, boolean hovered, float hover) {
+            // Fix the capitalisation as soon as the real spelling is known (e.g. "officialx" -> "OfficialX").
+            String proper = properName(label);
+            if (!proper.equals(label) && TeamNames.rename(list, label, proper)) {
+                if (list == rainbowNames) {
+                    syncRainbowNames();
+                }
+                rowsDirty = true;
+            }
             pillFill(g, x, y, w, height(), blend(CARD, CARD_HOVER, hover));
             PlayerFaceExtractor.extractRenderState(g, skinFor(label), x + 6, y + 4, 16);
             g.text(font, label, x + 28, y + 8, TEXT_MAIN);
@@ -1722,7 +1839,10 @@ public class CustomConfigScreen extends Screen {
         boolean mouseClicked(double mx, double my, int x, int y, int w) {
             if (contains(removeBounds(x, y, w), mx, my)) {
                 playClick();
-                TeamNames.remove(working.teamPlayers, label);
+                TeamNames.remove(list, label);
+                if (list == rainbowNames) {
+                    syncRainbowNames();
+                }
                 rebuildRows();
                 return true;
             }
@@ -1777,14 +1897,22 @@ public class CustomConfigScreen extends Screen {
             super(text, "");
         }
 
+        // Wraps onto more lines instead of cutting the text off on small windows.
+        List<FormattedCharSequence> lines() {
+            return font.split(Component.literal(label), Math.max(40, contentW() - 8));
+        }
+
         @Override
         int height() {
-            return 16;
+            return 6 + 10 * lines().size();
         }
 
         @Override
         void render(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY, boolean hovered, float hover) {
-            textNS(g, trimmedDesc(label, w - 8), x + 4, y + 4, TEXT_FAINT);
+            List<FormattedCharSequence> lines = lines();
+            for (int i = 0; i < lines.size(); i++) {
+                g.text(font, lines.get(i), x + 4, y + 4 + i * 10, TEXT_FAINT, false);
+            }
         }
 
         @Override

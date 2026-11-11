@@ -2,6 +2,20 @@
 
 All notable changes to Hitbox+ are written here. Dates are when the version went live on [Modrinth](https://modrinth.com/mod/hitbox-plus/versions).
 
+## 1.3.1
+
+**New: Rainbow Players card**
+
+* The rainbow player list moved from the Colors tab to the Players tab, with its own card and "i" description
+* It now works like the team list: skin faces, the + button, Tab autocomplete and x to remove
+
+**Fixes**
+
+* Player names get their real capitalisation, even when typed by hand ("officialx" becomes "OfficialX"), in the config screen and with `/hbteam add`
+* `/hbteam remove` on your own name now explains that you can't be on your own team
+* The rainbow name box no longer suggests a name while it is empty
+* Long hint text in the Players tab wraps instead of being cut off
+
 ## 1.3.0
 
 **New: Players tab and Team Color**
